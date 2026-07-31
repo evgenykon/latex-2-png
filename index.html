@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LaTeX → PNG конвертер</title>
+<script>
+window.MathJax = {
+  tex: { packages: ['base', 'ams', 'newcommand'] },
+  svg: { fontCache: 'local' },
+  loader: { load: ['[tex]/ams', '[tex]/newcommand'] },
+  startup: { typeset: false }
+};
+</script>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  .checker {
+    background:
+      repeating-conic-gradient(#1f2937 0% 25%, #111827 0% 50%) 0 0 / 20px 20px;
+  }
+</style>
+</head>
+<body class="bg-gray-950 text-gray-100 font-sans antialiased">
+
+  <div class="max-w-4xl mx-auto px-4 py-6">
+    <h1 class="text-2xl font-semibold mb-6">LaTeX → PNG</h1>
+
+    <div class="bg-gray-900 border border-gray-700/60 rounded-xl p-5 mb-5">
+      <h2 class="text-sm font-semibold text-gray-300 mb-3">Формула (LaTeX)</h2>
+      <div class="flex flex-wrap gap-2 mb-3">
+        <button data-insert="\frac{}{}" class="px-3 py-1 text-xs bg-gray-800 hover:bg-gray-700 text-gray-200 border border-gray-600 rounded-md">дробь</button>
+        <button data-insert="\sqrt{}" class="px-3 py-1 text-xs bg-gray-800 hover:bg-gray-700 text-gray-200 border border-gray-600 rounded-md">корень</button>
+        <button data-insert="\sum_{i=1}^{n}" class="px-3 py-1 text-xs bg-gray-800 hover:bg-gray-700 text-gray-200 border border-gray-600 rounded-md">сумма</button>
+        <button data-insert="\int_{a}^{b}" class="px-3 py-1 text-xs bg-gray-800 hover:bg-gray-700 text-gray-200 border border-gray-600 rounded-md">интеграл</button>
+        <button data-insert="\alpha" class="px-3 py-1 text-xs bg-gray-800 hover:bg-gray-700 text-gray-200 border border-gray-600 rounded-md">α</button>
+        <button data-insert="\beta" class="px-3 py-1 text-xs bg-gray-800 hover:bg-gray-700 text-gray-200 border border-gray-600 rounded-md">β</button>
+        <button data-insert="\rightarrow" class="px-3 py-1 text-xs bg-gray-800 hover:bg-gray-700 text-gray-200 border border-gray-600 rounded-md">→</button>
+        <button data-insert="\cdot" class="px-3 py-1 text-xs bg-gray-800 hover:bg-gray-700 text-gray-200 border border-gray-600 rounded-md">·</button>
+        <button data-insert="\times" class="px-3 py-1 text-xs bg-gray-800 hover:bg-gray-700 text-gray-200 border border-gray-600 rounded-md">×</button>
+        <button data-insert="\leq" class="px-3 py-1 text-xs bg-gray-800 hover:bg-gray-700 text-gray-200 border border-gray-600 rounded-md">≤</button>
+        <button data-insert="\geq" class="px-3 py-1 text-xs bg-gray-800 hover:bg-gray-700 text-gray-200 border border-gray-600 rounded-md">≥</button>
+      </div>
+      <textarea id="formula" spellcheck="false"
+        class="w-full min-h-[70px] p-2.5 bg-gray-950 border border-gray-700 rounded-md text-sm font-mono text-gray-100 resize-y focus:outline-none focus:ring-1 focus:ring-blue-500">E = mc^2</textarea>
+      <div class="text-xs text-gray-500 mt-1.5">Используйте математический синтаксис LaTeX (без $...$).</div>
+    </div>
+
+    <div class="bg-gray-900 border border-gray-700/60 rounded-xl p-5 mb-5">
+      <h2 class="text-sm font-semibold text-gray-300 mb-3">Настройки</h2>
+      <div class="grid grid-cols-2 md:grid-cols-3 gap-4">
+        <div>
+          <label class="block text-xs text-gray-400 mb-1">Цвет текста</label>
+          <input type="color" id="textColor" value="#ffffff" class="w-full h-9 p-1 bg-gray-800 border border-gray-600 rounded-md cursor-pointer">
+        </div>
+        <div>
+          <label id="bgLabel" class="block text-xs text-gray-400 mb-1">Цвет фона</label>
+          <input type="color" id="bgColor" value="#000000" class="w-full h-9 p-1 bg-gray-800 border border-gray-600 rounded-md cursor-pointer">
+          <label class="flex items-center gap-2 mt-2 text-xs">
+            <input type="checkbox" id="transparentBg" checked class="accent-blue-500">
+            Прозрачный фон
+          </label>
+        </div>
+        <div>
+          <label class="block text-xs text-gray-400 mb-1">Размер шрифта (pt)</label>
+          <input type="number" id="fontSize" value="24" min="6" max="200" step="1" class="w-full p-1.5 bg-gray-800 border border-gray-600 rounded-md text-sm text-gray-100">
+        </div>
+        <div>
+          <label class="block text-xs text-gray-400 mb-1">Размер картинки</label>
+          <select id="imgSizeMode" class="w-full p-1.5 bg-gray-800 border border-gray-600 rounded-md text-sm text-gray-100">
+            <option value="auto">Авто</option>
+            <option value="fit">Вписать в размер</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-xs text-gray-400 mb-1">Ширина (px)</label>
+          <input type="number" id="imgWidth" value="800" min="16" max="4096" step="16" class="w-full p-1.5 bg-gray-800 border border-gray-600 rounded-md text-sm text-gray-100">
+        </div>
+        <div>
+          <label class="block text-xs text-gray-400 mb-1">Высота (px)</label>
+          <input type="number" id="imgHeight" value="200" min="16" max="4096" step="16" class="w-full p-1.5 bg-gray-800 border border-gray-600 rounded-md text-sm text-gray-100">
+        </div>
+      </div>
+      <div class="flex flex-wrap items-center gap-4 mt-4">
+        <button id="generate" class="px-6 py-2.5 text-sm font-medium bg-blue-600 hover:bg-blue-500 disabled:bg-gray-600 disabled:cursor-not-allowed text-white rounded-md">Сгенерировать PNG</button>
+        <span id="status" class="text-xs text-gray-500"></span>
+      </div>
+    </div>
+
+    <div class="bg-gray-900 border border-gray-700/60 rounded-xl p-5 mb-5">
+      <h2 class="text-sm font-semibold text-gray-300 mb-3">Результат</h2>
+      <div class="checker min-h-[140px] border border-dashed border-gray-600 rounded-lg flex items-center justify-center p-5 overflow-auto">
+        <div id="previewBox" class="inline-block relative"></div>
+      </div>
+      <div id="errorBox" class="hidden mt-3 p-2.5 text-sm text-red-300 bg-red-950/50 border border-red-800/60 rounded-md whitespace-pre-wrap break-words"></div>
+      <div class="flex flex-wrap items-center gap-4 mt-4">
+        <a class="download hidden px-6 py-2.5 text-sm font-medium bg-green-600 hover:bg-green-500 text-white rounded-md" id="download" download="formula.png">Скачать PNG</a>
+        <span class="meta text-sm text-gray-500" id="meta"></span>
+      </div>
+    </div>
+  </div>
+
+<script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js" onerror="loadMathJaxFallback()"></script>
+<script>
+function loadMathJaxFallback() {
+  if (window.MathJax && MathJax.tex2svgPromise) return;
+  var urls = [
+    'https://cdnjs.cloudflare.com/ajax/libs/mathjax/3.2.2/es5/tex-svg.js',
+    'https://unpkg.com/mathjax@3/es5/tex-svg.js'
+  ];
+  function tryNext(i) {
+    if (i >= urls.length) { window.__mjFailed = true; return; }
+    var s = document.createElement('script');
+    s.src = urls[i];
+    s.onerror = function () { tryNext(i + 1); };
+    document.head.appendChild(s);
+  }
+  tryNext(0);
+}
+</script>
+
+<script>
+(function () {
+  var formula = document.getElementById('formula');
+  var previewBox = document.getElementById('previewBox');
+  var errorBox = document.getElementById('errorBox');
+  var download = document.getElementById('download');
+  var meta = document.getElementById('meta');
+  var statusEl = document.getElementById('status');
+  var generateBtn = document.getElementById('generate');
+
+  var textColor = document.getElementById('textColor');
+  var bgColor = document.getElementById('bgColor');
+  var bgLabel = document.getElementById('bgLabel');
+  var transparentBg = document.getElementById('transparentBg');
+  var fontSize = document.getElementById('fontSize');
+  var imgSizeMode = document.getElementById('imgSizeMode');
+  var imgWidth = document.getElementById('imgWidth');
+  var imgHeight = document.getElementById('imgHeight');
+
+  var mjReady = false;
+  var mjReadyPromise = null;
+
+  document.querySelectorAll('[data-insert]').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var snippet = btn.getAttribute('data-insert');
+      var start = formula.selectionStart;
+      var end = formula.selectionEnd;
+      formula.value = formula.value.slice(0, start) + snippet + formula.value.slice(end);
+      formula.selectionStart = formula.selectionEnd = start + snippet.length;
+      formula.focus();
+      schedulePreview();
+    });
+  });
+
+  function hexToRgb(hex) {
+    var v = hex.replace('#', '');
+    if (v.length === 3) v = v.split('').map(function (c) { return c + c; }).join('');
+    var n = parseInt(v, 16);
+    return { r: (n >> 16) & 255, g: (n >> 8) & 255, b: n & 255 };
+  }
+
+  function waitForMathJax() {
+    if (mjReady) return Promise.resolve();
+    if (mjReadyPromise) return mjReadyPromise;
+    mjReadyPromise = new Promise(function (resolve, reject) {
+      var tries = 0;
+      var iv = setInterval(function () {
+        tries++;
+        var ok = window.MathJax && MathJax.startup && MathJax.startup.promise && typeof MathJax.tex2svgPromise === 'function';
+        if (ok) {
+          clearInterval(iv);
+          MathJax.startup.promise.then(function () {
+            mjReady = true;
+            statusEl.textContent = '';
+            resolve();
+          }, function (err) {
+            statusEl.textContent = '';
+            reject(err);
+          });
+        } else if (window.__mjFailed) {
+          clearInterval(iv);
+          statusEl.textContent = '';
+          reject(new Error('Не удалось загрузить MathJax (нет доступа к CDN)'));
+        } else if (tries > 150) {
+          clearInterval(iv);
+          statusEl.textContent = '';
+          reject(new Error('MathJax не загрузился за отведённое время'));
+        }
+      }, 100);
+    });
+    return mjReadyPromise;
+  }
+
+  function setStatus(msg) {
+    statusEl.textContent = msg;
+  }
+
+  function texToSvg(tex) {
+    return waitForMathJax().then(function () {
+      if (typeof MathJax.texReset === 'function') MathJax.texReset();
+      return MathJax.tex2svgPromise('\\displaystyle ' + tex, { display: false });
+    }).then(function (node) {
+      var svg = node && node.tagName && node.tagName.toLowerCase() === 'svg' ? node : node.querySelector('svg');
+      if (!svg) throw new Error('SVG не создан');
+      return svg;
+    });
+  }
+
+  function naturalSize(svg, fontPx) {
+    var vb = svg.viewBox.baseVal;
+    var w = vb && vb.width ? vb.width : 1000;
+    var h = vb && vb.height ? vb.height : 1000;
+    return {
+      w: Math.max(1, Math.round(w / 1000 * fontPx)),
+      h: Math.max(1, Math.round(h / 1000 * fontPx))
+    };
+  }
+
+  function ptToPx(pt) { return pt * 96 / 72; }
+
+  function buildSvgString(renderedSvg, color, fontPx, target) {
+    var node = renderedSvg.cloneNode(true);
+    node.removeAttribute('width');
+    node.removeAttribute('height');
+    var rgb = hexToRgb(color);
+    node.setAttribute('style', 'color:rgb(' + rgb.r + ',' + rgb.g + ',' + rgb.b + ')');
+    var g = node.querySelector('g[data-mml-node]') || node.querySelector('g');
+    if (g) {
+      g.setAttribute('stroke', 'rgb(' + rgb.r + ',' + rgb.g + ',' + rgb.b + ')');
+      g.setAttribute('fill', 'rgb(' + rgb.r + ',' + rgb.g + ',' + rgb.b + ')');
+    }
+
+    var nat = naturalSize(renderedSvg, fontPx);
+    var drawW = nat.w, drawH = nat.h, offX = 0, offY = 0;
+    var canvasW = nat.w, canvasH = nat.h;
+
+    if (target && target.width && target.height) {
+      canvasW = target.width; canvasH = target.height;
+      var scale = Math.min(canvasW / nat.w, canvasH / nat.h);
+      drawW = Math.max(1, Math.round(nat.w * scale));
+      drawH = Math.max(1, Math.round(nat.h * scale));
+      offX = Math.round((canvasW - drawW) / 2);
+      offY = Math.round((canvasH - drawH) / 2);
+    }
+
+    node.setAttribute('width', drawW);
+    node.setAttribute('height', drawH);
+    return {
+      xml: '<?xml version="1.0" encoding="UTF-8" standalone="no"?>' + node.outerHTML,
+      drawW: drawW, drawH: drawH,
+      canvasW: canvasW, canvasH: canvasH,
+      offX: offX, offY: offY
+    };
+  }
+
+  function drawSvgToCanvas(svgXml, bgRgb, transparent, geom) {
+    var canvas = document.createElement('canvas');
+    canvas.width = geom.canvasW;
+    canvas.height = geom.canvasH;
+    var ctx = canvas.getContext('2d');
+    if (transparent) {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+    } else {
+      ctx.fillStyle = 'rgb(' + bgRgb.r + ',' + bgRgb.g + ',' + bgRgb.b + ')';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+    }
+    return new Promise(function (resolve, reject) {
+      var img = new Image();
+      img.onload = function () {
+        ctx.drawImage(img, geom.offX, geom.offY, geom.drawW, geom.drawH);
+        resolve(canvas);
+      };
+      img.onerror = function () {
+        reject(new Error('Не удалось отрисовать SVG в canvas'));
+      };
+      img.src = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svgXml)));
+    });
+  }
+
+  function setError(msg) {
+    if (msg) {
+      errorBox.style.display = 'block';
+      errorBox.textContent = msg;
+    } else {
+      errorBox.style.display = 'none';
+      errorBox.textContent = '';
+    }
+  }
+
+  function renderPreviewSvg() {
+    var tex = formula.value.trim();
+    if (!tex) { previewBox.innerHTML = ''; meta.textContent = ''; return; }
+    var fontPx = ptToPx(parseInt(fontSize.value, 10) || 24);
+    texToSvg(tex).then(function (svg) {
+      var nat = naturalSize(svg, fontPx);
+      svg.setAttribute('width', nat.w);
+      svg.setAttribute('height', nat.h);
+      var rgb = hexToRgb(textColor.value);
+      svg.style.color = 'rgb(' + rgb.r + ',' + rgb.g + ',' + rgb.b + ')';
+      previewBox.innerHTML = '';
+      previewBox.appendChild(svg);
+      meta.textContent = 'Размер: ' + nat.w + ' × ' + nat.h + ' px (при ' + fontSize.value + ' pt)';
+      setError(null);
+    }).catch(function (err) {
+      previewBox.innerHTML = '';
+      meta.textContent = '';
+      setError('Ошибка LaTeX: ' + (err && err.message ? err.message : err));
+    });
+  }
+
+  function computeTarget() {
+    if (imgSizeMode.value === 'auto') return null;
+    return {
+      width: parseInt(imgWidth.value, 10) || 0,
+      height: parseInt(imgHeight.value, 10) || 0
+    };
+  }
+
+  function generate() {
+    var tex = formula.value.trim();
+    if (!tex) { setError('Введите формулу'); return; }
+    setStatus('Генерация…');
+    generateBtn.disabled = true;
+    download.classList.add('hidden');
+    meta.textContent = '';
+
+    var fontPx = ptToPx(parseInt(fontSize.value, 10) || 24);
+    var color = textColor.value;
+    var bg = bgColor.value;
+    var transparent = transparentBg.checked;
+    var target = computeTarget();
+
+    var start = Date.now();
+    texToSvg(tex)
+      .then(function (svg) {
+        var src = buildSvgString(svg, color, fontPx, target);
+        var bgRgb = hexToRgb(bg);
+        return drawSvgToCanvas(src.xml, bgRgb, transparent, src);
+      })
+      .then(function (canvas) {
+        download.href = canvas.toDataURL('image/png');
+        download.classList.remove('hidden');
+        download.download = 'formula.png';
+        meta.textContent = 'Размер PNG: ' + canvas.width + ' × ' + canvas.height + ' px' +
+          (transparent ? ' (прозрачный фон)' : '');
+        setError(null);
+      })
+      .catch(function (err) {
+        setError('Ошибка: ' + (err && err.message ? err.message : err));
+      })
+      .finally(function () {
+        setStatus('Готово за ' + ((Date.now() - start) / 1000).toFixed(2) + ' с');
+        generateBtn.disabled = false;
+        generateBtn.textContent = 'Сгенерировать PNG';
+      });
+  }
+
+  generateBtn.addEventListener('click', generate);
+
+  function syncTransparent() {
+    bgColor.disabled = transparentBg.checked;
+    bgLabel.style.opacity = transparentBg.checked ? 0.4 : 1;
+  }
+  transparentBg.addEventListener('change', syncTransparent);
+  syncTransparent();
+
+  var prevTimer = null;
+  function schedulePreview() {
+    clearTimeout(prevTimer);
+    prevTimer = setTimeout(renderPreviewSvg, 250);
+  }
+  formula.addEventListener('input', schedulePreview);
+  [textColor, bgColor, transparentBg, fontSize, imgSizeMode].forEach(function (el) {
+    el.addEventListener('input', schedulePreview);
+  });
+
+  waitForMathJax().then(function () {
+    setStatus('MathJax загружен');
+    renderPreviewSvg();
+  }, function (err) {
+    setStatus('');
+    setError(err && err.message ? err.message : 'MathJax не загрузился');
+    generateBtn.disabled = true;
+  });
+})();
+</script>
+</body>
+</html>
