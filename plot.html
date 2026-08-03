@@ -1,0 +1,561 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>График функции → PNG</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  .checker {
+    background:
+      repeating-conic-gradient(#1f2937 0% 25%, #111827 0% 50%) 0 0 / 20px 20px;
+  }
+</style>
+</head>
+<body class="bg-gray-950 text-gray-100 font-sans antialiased">
+
+  <div class="max-w-4xl mx-auto px-4 py-6">
+    <div class="flex items-center justify-between mb-6">
+      <h1 class="text-2xl font-semibold">График функции → PNG</h1>
+      <a href="./index.html" class="text-xs text-gray-400 hover:text-gray-200 underline">← LaTeX → PNG</a>
+    </div>
+
+    <div class="bg-gray-900 border border-gray-700/60 rounded-xl p-5 mb-5">
+      <h2 class="text-sm font-semibold text-gray-300 mb-3">Функция (LaTeX, переменная x)</h2>
+      <div class="flex flex-wrap gap-2 mb-3">
+        <button data-insert="\frac{}{}" class="px-3 py-1 text-xs bg-gray-800 hover:bg-gray-700 text-gray-200 border border-gray-600 rounded-md">дробь</button>
+        <button data-insert="\sqrt{x}" class="px-3 py-1 text-xs bg-gray-800 hover:bg-gray-700 text-gray-200 border border-gray-600 rounded-md">корень</button>
+        <button data-insert="x^{2}" class="px-3 py-1 text-xs bg-gray-800 hover:bg-gray-700 text-gray-200 border border-gray-600 rounded-md">x²</button>
+        <button data-insert="e^{x}" class="px-3 py-1 text-xs bg-gray-800 hover:bg-gray-700 text-gray-200 border border-gray-600 rounded-md">eˣ</button>
+        <button data-insert="\sin(x)" class="px-3 py-1 text-xs bg-gray-800 hover:bg-gray-700 text-gray-200 border border-gray-600 rounded-md">sin</button>
+        <button data-insert="\cos(x)" class="px-3 py-1 text-xs bg-gray-800 hover:bg-gray-700 text-gray-200 border border-gray-600 rounded-md">cos</button>
+        <button data-insert="\tan(x)" class="px-3 py-1 text-xs bg-gray-800 hover:bg-gray-700 text-gray-200 border border-gray-600 rounded-md">tan</button>
+        <button data-insert="\ln(x)" class="px-3 py-1 text-xs bg-gray-800 hover:bg-gray-700 text-gray-200 border border-gray-600 rounded-md">ln</button>
+        <button data-insert="\log(x)" class="px-3 py-1 text-xs bg-gray-800 hover:bg-gray-700 text-gray-200 border border-gray-600 rounded-md">log</button>
+        <button data-insert="\pi" class="px-3 py-1 text-xs bg-gray-800 hover:bg-gray-700 text-gray-200 border border-gray-600 rounded-md">π</button>
+        <button data-insert="\left| x \right|" class="px-3 py-1 text-xs bg-gray-800 hover:bg-gray-700 text-gray-200 border border-gray-600 rounded-md">|x|</button>
+        <button data-insert="\cdot" class="px-3 py-1 text-xs bg-gray-800 hover:bg-gray-700 text-gray-200 border border-gray-600 rounded-md">·</button>
+        <button data-insert="\times" class="px-3 py-1 text-xs bg-gray-800 hover:bg-gray-700 text-gray-200 border border-gray-600 rounded-md">×</button>
+        <button data-insert="\leq" class="px-3 py-1 text-xs bg-gray-800 hover:bg-gray-700 text-gray-200 border border-gray-600 rounded-md">≤</button>
+        <button data-insert="\geq" class="px-3 py-1 text-xs bg-gray-800 hover:bg-gray-700 text-gray-200 border border-gray-600 rounded-md">≥</button>
+      </div>
+      <textarea id="formula" spellcheck="false"
+        class="w-full min-h-[70px] p-2.5 bg-gray-950 border border-gray-700 rounded-md text-sm font-mono text-gray-100 resize-y focus:outline-none focus:ring-1 focus:ring-blue-500">\sin(x) + \frac{\sin(3x)}{3}</textarea>
+      <div class="text-xs text-gray-500 mt-1.5">LaTeX без $...$, переменная — x. Например: \frac{x^2}{2} - \sin(x).</div>
+      <div class="mt-3">
+        <label for="params" class="block text-xs text-gray-400 mb-1">Параметры (константы, разделители: запятая или пробел)</label>
+        <input type="text" id="params" spellcheck="false"
+          placeholder="например: a=1, b=2, c=-3"
+          class="w-full p-1.5 bg-gray-800 border border-gray-600 rounded-md text-sm text-gray-100 font-mono">
+      </div>
+    </div>
+
+    <div class="bg-gray-900 border border-gray-700/60 rounded-xl p-5 mb-5">
+      <h2 class="text-sm font-semibold text-gray-300 mb-3">Диапазоны</h2>
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div>
+          <label class="block text-xs text-gray-400 mb-1">x от</label>
+          <input type="number" id="xMin" value="-10" step="any" class="w-full p-1.5 bg-gray-800 border border-gray-600 rounded-md text-sm text-gray-100">
+        </div>
+        <div>
+          <label class="block text-xs text-gray-400 mb-1">x до</label>
+          <input type="number" id="xMax" value="10" step="any" class="w-full p-1.5 bg-gray-800 border border-gray-600 rounded-md text-sm text-gray-100">
+        </div>
+        <div>
+          <label class="block text-xs text-gray-400 mb-1">y от (пусто — авто)</label>
+          <input type="number" id="yMin" value="" step="any" class="w-full p-1.5 bg-gray-800 border border-gray-600 rounded-md text-sm text-gray-100">
+        </div>
+        <div>
+          <label class="block text-xs text-gray-400 mb-1">y до (пусто — авто)</label>
+          <input type="number" id="yMax" value="" step="any" class="w-full p-1.5 bg-gray-800 border border-gray-600 rounded-md text-sm text-gray-100">
+        </div>
+      </div>
+      <label class="flex items-center gap-2 mt-3 text-xs">
+        <input type="checkbox" id="autoY" class="accent-blue-500">
+        Автомасштаб по Y (если выключен и y от/до пустые — фиксированный диапазон, кратный диапазону x)
+      </label>
+      <div class="mt-3 max-w-[180px]">
+        <label class="block text-xs text-gray-400 mb-1">Число точек</label>
+        <input type="number" id="npoints" value="500" min="50" max="5000" step="50" class="w-full p-1.5 bg-gray-800 border border-gray-600 rounded-md text-sm text-gray-100">
+      </div>
+    </div>
+
+    <div class="bg-gray-900 border border-gray-700/60 rounded-xl p-5 mb-5">
+      <h2 class="text-sm font-semibold text-gray-300 mb-3">Оформление</h2>
+      <div class="grid grid-cols-2 md:grid-cols-3 gap-4">
+        <div>
+          <label class="block text-xs text-gray-400 mb-1">Цвет графика</label>
+          <input type="color" id="lineColor" value="#38bdf8" class="w-full h-9 p-1 bg-gray-800 border border-gray-600 rounded-md cursor-pointer">
+        </div>
+        <div>
+          <label class="block text-xs text-gray-400 mb-1">Толщина линии</label>
+          <input type="number" id="lineWidth" value="3" min="1" max="20" step="0.5" class="w-full p-1.5 bg-gray-800 border border-gray-600 rounded-md text-sm text-gray-100">
+        </div>
+        <div>
+          <label class="block text-xs text-gray-400 mb-1">Цвет осей</label>
+          <input type="color" id="axisColor" value="#9ca3af" class="w-full h-9 p-1 bg-gray-800 border border-gray-600 rounded-md cursor-pointer">
+        </div>
+        <div>
+          <label class="block text-xs text-gray-400 mb-1">Цвет сетки</label>
+          <input type="color" id="gridColor" value="#374151" class="w-full h-9 p-1 bg-gray-800 border border-gray-600 rounded-md cursor-pointer">
+          <label class="flex items-center gap-2 mt-2 text-xs">
+            <input type="checkbox" id="showGrid" checked class="accent-blue-500">
+            Показывать сетку
+          </label>
+        </div>
+        <div>
+          <label id="bgLabel" class="block text-xs text-gray-400 mb-1">Цвет фона</label>
+          <input type="color" id="bgColor" value="#111827" class="w-full h-9 p-1 bg-gray-800 border border-gray-600 rounded-md cursor-pointer">
+          <label class="flex items-center gap-2 mt-2 text-xs">
+            <input type="checkbox" id="transparentBg" class="accent-blue-500">
+            Прозрачный фон
+          </label>
+        </div>
+      </div>
+    </div>
+
+    <div class="bg-gray-900 border border-gray-700/60 rounded-xl p-5 mb-5">
+      <h2 class="text-sm font-semibold text-gray-300 mb-3">Легенда</h2>
+      <div class="grid grid-cols-2 md:grid-cols-3 gap-4">
+        <div class="md:col-span-2">
+          <label class="block text-xs text-gray-400 mb-1">Подпись в легенде (LaTeX)</label>
+          <input type="text" id="legendText" placeholder="пусто — по умолчанию: y = &lt;формула&gt;"
+            class="w-full p-1.5 bg-gray-800 border border-gray-600 rounded-md text-sm text-gray-100 font-mono">
+          <label class="flex items-center gap-2 mt-2 text-xs">
+            <input type="checkbox" id="showLegend" checked class="accent-blue-500">
+            Показывать легенду
+          </label>
+        </div>
+        <div>
+          <label class="block text-xs text-gray-400 mb-1">Шрифт легенды</label>
+          <select id="legendFont" class="w-full p-1.5 bg-gray-800 border border-gray-600 rounded-md text-sm text-gray-100">
+            <option value="'DejaVu Sans', sans-serif">Sans-serif</option>
+            <option value="Georgia, 'Times New Roman', serif">Serif</option>
+            <option value="'Courier New', monospace">Monospace</option>
+            <option value="'STIX Two Text', serif">STIX Two Text</option>
+            <option value="'Times New Roman', Times, serif">Times New Roman</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-xs text-gray-400 mb-1">Размер шрифта (px)</label>
+          <input type="number" id="legendSize" value="14" min="6" max="64" step="1" class="w-full p-1.5 bg-gray-800 border border-gray-600 rounded-md text-sm text-gray-100">
+        </div>
+        <div>
+          <label class="block text-xs text-gray-400 mb-1">Цвет текста</label>
+          <input type="color" id="legendColor" value="#e5e7eb" class="w-full h-9 p-1 bg-gray-800 border border-gray-600 rounded-md cursor-pointer">
+        </div>
+        <div>
+          <label class="block text-xs text-gray-400 mb-1">Ширина (px)</label>
+          <input type="number" id="imgWidth" value="1000" min="200" max="4096" step="50" class="w-full p-1.5 bg-gray-800 border border-gray-600 rounded-md text-sm text-gray-100">
+        </div>
+        <div>
+          <label class="block text-xs text-gray-400 mb-1">Высота (px)</label>
+          <input type="number" id="imgHeight" value="600" min="200" max="4096" step="50" class="w-full p-1.5 bg-gray-800 border border-gray-600 rounded-md text-sm text-gray-100">
+        </div>
+        <div>
+          <label class="block text-xs text-gray-400 mb-1">Масштаб PNG</label>
+          <input type="number" id="scale" value="1" min="1" max="4" step="1" class="w-full p-1.5 bg-gray-800 border border-gray-600 rounded-md text-sm text-gray-100">
+        </div>
+      </div>
+      <div class="flex flex-wrap items-center gap-4 mt-4">
+        <button id="generate" class="px-6 py-2.5 text-sm font-medium bg-blue-600 hover:bg-blue-500 disabled:bg-gray-600 disabled:cursor-not-allowed text-white rounded-md">Сгенерировать PNG</button>
+        <span id="status" class="text-xs text-gray-500"></span>
+      </div>
+    </div>
+
+    <div class="bg-gray-900 border border-gray-700/60 rounded-xl p-5 mb-5">
+      <h2 class="text-sm font-semibold text-gray-300 mb-3">Результат</h2>
+      <div class="checker min-h-[140px] border border-dashed border-gray-600 rounded-lg flex items-center justify-center p-5 overflow-auto">
+        <div id="plotDiv"></div>
+      </div>
+      <div id="errorBox" class="hidden mt-3 p-2.5 text-sm text-red-300 bg-red-950/50 border border-red-800/60 rounded-md whitespace-pre-wrap break-words"></div>
+      <div class="flex flex-wrap items-center gap-4 mt-4">
+        <a class="download hidden px-6 py-2.5 text-sm font-medium bg-green-600 hover:bg-green-500 text-white rounded-md" id="download" download="plot.png">Скачать PNG</a>
+        <span class="meta text-sm text-gray-500" id="meta"></span>
+      </div>
+    </div>
+  </div>
+
+<script src="https://cdn.plot.ly/plotly-3.7.0.min.js" onerror="loadPlotlyFallback()"></script>
+<script>
+function loadPlotlyFallback() {
+  if (window.Plotly) return;
+  var urls = [
+    'https://unpkg.com/plotly.js@3.7.0/dist/plotly.min.js',
+    'https://cdn.jsdelivr.net/npm/plotly.js@3.7.0/dist/plotly.min.js'
+  ];
+  function tryNext(i) {
+    if (i >= urls.length) { window.__plotlyFailed = true; return; }
+    var s = document.createElement('script');
+    s.src = urls[i];
+    s.onload = function () { if (!window.Plotly) tryNext(i + 1); };
+    s.onerror = function () { tryNext(i + 1); };
+    document.head.appendChild(s);
+  }
+  tryNext(0);
+}
+</script>
+
+<script>
+(function () {
+  function $ (id) { return document.getElementById(id); }
+  var formula = $('formula');
+  var paramsInput = $('params');
+  var legendText = $('legendText');
+  var showLegend = $('showLegend');
+  var xMin = $('xMin'), xMax = $('xMax'), yMin = $('yMin'), yMax = $('yMax'), npoints = $('npoints'), autoY = $('autoY');
+  var lineColor = $('lineColor'), lineWidth = $('lineWidth');
+  var axisColor = $('axisColor'), gridColor = $('gridColor'), showGrid = $('showGrid');
+  var legendFont = $('legendFont'), legendSize = $('legendSize'), legendColor = $('legendColor');
+  var bgColor = $('bgColor'), transparentBg = $('transparentBg'), bgLabel = $('bgLabel');
+  var imgWidth = $('imgWidth'), imgHeight = $('imgHeight'), scale = $('scale');
+  var generateBtn = $('generate'), statusEl = $('status');
+  var plotDiv = $('plotDiv'), errorBox = $('errorBox'), download = $('download'), meta = $('meta');
+
+  var pending = null;
+  var m = null;
+
+  document.querySelectorAll('[data-insert]').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var snippet = btn.getAttribute('data-insert');
+      var start = formula.selectionStart;
+      var end = formula.selectionEnd;
+      formula.value = formula.value.slice(0, start) + snippet + formula.value.slice(end);
+      formula.selectionStart = formula.selectionEnd = start + snippet.length;
+      formula.focus();
+      scheduleRender();
+    });
+  });
+
+  function msg(e) { return e && e.message ? e.message : String(e); }
+
+  function loadScript(url) {
+    return new Promise(function (resolve, reject) {
+      var s = document.createElement('script');
+      s.src = url;
+      s.onload = resolve;
+      s.onerror = function () { reject(new Error('Не удалось загрузить ' + url)); };
+      document.head.appendChild(s);
+    });
+  }
+
+  function loadPlotly() {
+    if (window.Plotly) return Promise.resolve();
+    var urls = [
+      'https://cdn.plot.ly/plotly-3.7.0.min.js',
+      'https://unpkg.com/plotly.js@3.7.0/dist/plotly.min.js',
+      'https://cdn.jsdelivr.net/npm/plotly.js@3.7.0/dist/plotly.min.js'
+    ];
+    var chain = Promise.reject(new Error('start'));
+    urls.forEach(function (u) {
+      chain = chain.catch(function () {
+        return loadScript(u).then(function () {
+          if (!window.Plotly) throw new Error('Plotly не загрузился: ' + u);
+        });
+      });
+    });
+    return chain;
+  }
+
+  function loadComputeEngine() {
+    if (m && m.compile) return Promise.resolve(m);
+    var urls = [
+      'https://cdn.jsdelivr.net/npm/@cortex-js/compute-engine@0.100.2/+esm',
+      'https://esm.sh/@cortex-js/compute-engine@0.100.2'
+    ];
+    var chain = Promise.reject(new Error('start'));
+    urls.forEach(function (u) {
+      chain = chain.catch(function () {
+        return import(u).then(function (mod) {
+          if (!mod || typeof mod.compile !== 'function') throw new Error('Compute Engine не загрузился: ' + u);
+          m = mod;
+        });
+      });
+    });
+    return chain;
+  }
+
+  function waitForLibs() {
+    if (pending) return pending;
+    pending = Promise.all([loadPlotly(), loadComputeEngine()]).then(function () {
+      statusEl.textContent = '';
+    });
+    return pending;
+  }
+
+  function setStatus(s) { statusEl.textContent = s; }
+
+  function setError(err) {
+    if (err) {
+      errorBox.style.display = 'block';
+      errorBox.textContent = err;
+    } else {
+      errorBox.style.display = 'none';
+      errorBox.textContent = '';
+    }
+  }
+
+  function parseNum(el, def) {
+    var v = parseFloat(el.value);
+    return isFinite(v) ? v : def;
+  }
+
+  function parseOptNum(el) {
+    var v = parseFloat(el.value);
+    return isFinite(v) ? v : null;
+  }
+
+  function parseParams() {
+    var params = {};
+    var raw = paramsInput.value.trim();
+    if (!raw) return params;
+    raw.split(/[,;\s]+/).forEach(function (tok) {
+      var m = /^([a-zA-Z_][a-zA-Z0-9_]*)\s*=\s*(-?\d*\.?\d+)$/.exec(tok);
+      if (m && m[1] !== 'x') params[m[1]] = parseFloat(m[2]);
+    });
+    return params;
+  }
+
+  function undefinedSymbols(fn, params) {
+    var unknown = [];
+    if (fn && fn.freeSymbols) {
+      fn.freeSymbols.forEach(function (s) {
+        if (s === 'x') return;
+        if (Object.prototype.hasOwnProperty.call(params, s)) return;
+        unknown.push(s);
+      });
+    }
+    return unknown;
+  }
+
+  function cleanTex(s) {
+    return s.replace(/\$/g, '').replace(/\\displaystyle\s*/g, '').trim();
+  }
+
+  function compileTex(tex) {
+    if (!m || typeof m.compile !== 'function') throw new Error('Compute Engine не загружен');
+    try {
+      return m.compile(tex);
+    } catch (e) {
+      throw new Error('Ошибка LaTeX: ' + msg(e));
+    }
+  }
+
+  function buildSegments(fn, x0, x1, n, params) {
+    var pts = [];
+    for (var i = 0; i < n; i++) {
+      var x = x0 + (x1 - x0) * i / (n - 1);
+      var scope = { x: x };
+      for (var key in params) {
+        if (Object.prototype.hasOwnProperty.call(params, key)) scope[key] = params[key];
+      }
+      var y = null;
+      try {
+        y = fn.run(scope);
+      } catch (e) { /* точка не вычислима */ }
+      pts.push({ x: x, y: (typeof y === 'number' && isFinite(y)) ? y : null });
+    }
+    var finite = [];
+    for (var j = 0; j < pts.length; j++) {
+      if (pts[j].y !== null) finite.push(pts[j].y);
+    }
+    var jump;
+    if (finite.length >= 10) {
+      var sorted = finite.slice().sort(function (a, b) { return a - b; });
+      var q01 = sorted[Math.min(sorted.length - 1, Math.max(0, Math.floor(0.01 * (sorted.length - 1))))];
+      var q99 = sorted[Math.min(sorted.length - 1, Math.floor(0.99 * (sorted.length - 1)))];
+      jump = Math.max(Math.abs(q99 - q01) * 3, 1e-6);
+    } else {
+      jump = 1e-6;
+    }
+    var segments = [];
+    var cur = [];
+    var prev = null;
+    for (var k = 0; k < pts.length; k++) {
+      var p = pts[k];
+      if (p.y === null) {
+        if (cur.length) { segments.push(cur); cur = []; }
+        prev = null;
+        continue;
+      }
+      if (prev !== null && prev.y * p.y < 0 && Math.abs(p.y - prev.y) > jump) {
+        if (cur.length) { segments.push(cur); cur = []; }
+      }
+      cur.push(p);
+      prev = p;
+    }
+    if (cur.length) segments.push(cur);
+    return segments;
+  }
+
+  function buildAndDraw() {
+    var tex = cleanTex(formula.value);
+    if (!tex) return Promise.reject(new Error('Введите формулу'));
+    return waitForLibs().then(function () {
+      var fn = compileTex(tex);
+      var params = parseParams();
+      var unknown = undefinedSymbols(fn, params);
+      if (unknown.length) {
+        throw new Error('Неизвестные переменные: ' + unknown.join(', ') +
+          '. Задайте их значения в поле «Параметры», например: ' +
+          unknown.map(function (s) { return s + '=1'; }).join(', ') + '.');
+      }
+      var x0 = parseNum(xMin, -10);
+      var x1 = parseNum(xMax, 10);
+      if (x1 <= x0) throw new Error('x «до» должно быть больше x «от»');
+      var n = Math.round(Math.min(5000, Math.max(50, parseNum(npoints, 500))));
+      var y0 = parseOptNum(yMin);
+      var y1 = parseOptNum(yMax);
+      var segments = buildSegments(fn, x0, x1, n, params);
+      if (!segments.length) throw new Error('Не удалось построить график: функция не даёт значений на заданном диапазоне (проверьте диапазон x и параметры)');
+      var legendTex = legendText.value.trim() || ('y = ' + tex);
+      var traces = segments.map(function (seg, idx) {
+        return {
+          x: seg.map(function (p) { return p.x; }),
+          y: seg.map(function (p) { return p.y; }),
+          type: 'scatter',
+          mode: 'lines',
+          name: '$' + legendTex + '$',
+          legendgroup: 'f',
+          showlegend: idx === 0,
+          hoverinfo: 'skip',
+          line: { color: lineColor.value, width: parseNum(lineWidth, 3) }
+        };
+      });
+      var transparent = transparentBg.checked;
+      var bg = transparent ? 'rgba(0,0,0,0)' : bgColor.value;
+      var yaxis = {
+        color: axisColor.value,
+        linecolor: axisColor.value,
+        zerolinecolor: axisColor.value,
+        gridcolor: gridColor.value,
+        showgrid: showGrid.checked,
+        zeroline: true
+      };
+      var yRangeLabel = 'авто';
+      if (y0 !== null || y1 !== null) {
+        yaxis.range = [y0, y1];
+        yRangeLabel = y0 + ' … ' + y1;
+      } else if (!autoY.checked) {
+        var half = (x1 - x0) / 2;
+        yaxis.range = [-half, half];
+        yRangeLabel = (-half) + ' … ' + half;
+      }
+      var layout = {
+        autosize: false,
+        width: Math.max(200, Math.round(parseNum(imgWidth, 1000))),
+        height: Math.max(200, Math.round(parseNum(imgHeight, 600))),
+        paper_bgcolor: bg,
+        plot_bgcolor: bg,
+        font: { color: axisColor.value },
+        showlegend: showLegend.checked,
+        legend: {
+          font: {
+            family: legendFont.value,
+            size: Math.max(6, parseNum(legendSize, 14)),
+            color: legendColor.value
+          }
+        },
+        margin: { l: 60, r: 20, t: 20, b: 50 },
+        xaxis: {
+          color: axisColor.value,
+          linecolor: axisColor.value,
+          zerolinecolor: axisColor.value,
+          gridcolor: gridColor.value,
+          showgrid: showGrid.checked,
+          zeroline: true,
+          range: [x0, x1]
+        },
+        yaxis: yaxis
+      };
+      var config = { displaylogo: false, displayModeBar: false };
+      return Plotly.react(plotDiv, traces, layout, config).then(function () {
+        return { segments: segments.length, points: n, yRange: yRangeLabel };
+      });
+    });
+  }
+
+  function render() {
+    buildAndDraw().then(function (info) {
+      setError(null);
+      meta.textContent = 'Сегментов: ' + info.segments + ', точек: ' + info.points + ' | Y: ' + info.yRange;
+    }).catch(function (err) {
+      meta.textContent = '';
+      setError(msg(err));
+    });
+  }
+
+  function generate() {
+    var tex = cleanTex(formula.value);
+    if (!tex) { setError('Введите формулу'); return; }
+    setStatus('Генерация…');
+    generateBtn.disabled = true;
+    download.classList.add('hidden');
+    meta.textContent = '';
+    var start = Date.now();
+    buildAndDraw().then(function () {
+      var w = Math.max(200, Math.round(parseNum(imgWidth, 1000)));
+      var h = Math.max(200, Math.round(parseNum(imgHeight, 600)));
+      var sc = Math.max(1, parseNum(scale, 1));
+      var transparent = transparentBg.checked;
+      return Plotly.toImage(plotDiv, {
+        format: 'png',
+        width: w,
+        height: h,
+        scale: sc,
+        transparent: transparent
+      });
+    }).then(function (dataUrl) {
+      download.href = dataUrl;
+      download.classList.remove('hidden');
+      var w = Math.max(200, Math.round(parseNum(imgWidth, 1000))) * Math.max(1, parseNum(scale, 1));
+      var h = Math.max(200, Math.round(parseNum(imgHeight, 600))) * Math.max(1, parseNum(scale, 1));
+      meta.textContent = 'Размер PNG: ' + w + ' × ' + h + ' px' +
+        (transparentBg.checked ? ' (прозрачный фон)' : '');
+      setError(null);
+    }).catch(function (err) {
+      meta.textContent = '';
+      setError('Ошибка: ' + msg(err));
+    }).finally(function () {
+      setStatus('Готово за ' + ((Date.now() - start) / 1000).toFixed(2) + ' с');
+      generateBtn.disabled = false;
+    });
+  }
+
+  generateBtn.addEventListener('click', generate);
+
+  function syncTransparent() {
+    bgColor.disabled = transparentBg.checked;
+    bgLabel.style.opacity = transparentBg.checked ? 0.4 : 1;
+  }
+  transparentBg.addEventListener('change', syncTransparent);
+  syncTransparent();
+
+  var renderTimer = null;
+  function scheduleRender() {
+    clearTimeout(renderTimer);
+    renderTimer = setTimeout(render, 250);
+  }
+  var liveEls = [formula, paramsInput, legendText, showLegend, xMin, xMax, yMin, yMax, autoY, npoints,
+    lineColor, lineWidth, axisColor, gridColor, showGrid,
+    legendFont, legendSize, legendColor,
+    bgColor, transparentBg, imgWidth, imgHeight];
+  liveEls.forEach(function (el) {
+    el.addEventListener('input', scheduleRender);
+  });
+  liveEls.forEach(function (el) {
+    el.addEventListener('change', scheduleRender);
+  });
+
+  setStatus('Загрузка библиотек…');
+  waitForLibs().then(function () {
+    setStatus('');
+    render();
+  }).catch(function (err) {
+    setStatus('');
+    setError('Не удалось загрузить библиотеки: ' + msg(err));
+  });
+})();
+</script>
+</body>
+</html>
