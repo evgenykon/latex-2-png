@@ -71,16 +71,15 @@
       <div class="flex items-center gap-1.5">
         <span class="text-xs text-gray-400 mr-0.5">Цвет</span>
         <input type="color" id="color" value="#f97316" class="h-8 w-10 p-0.5 bg-gray-800 border border-gray-600 rounded-md cursor-pointer">
-        <div class="flex flex-wrap gap-1.5">
-          <div data-color="#f97316" class="swatch active" style="background:#f97316"></div>
-          <div data-color="#f87171" class="swatch" style="background:#f87171"></div>
-          <div data-color="#4ade80" class="swatch" style="background:#4ade80"></div>
-          <div data-color="#facc15" class="swatch" style="background:#facc15"></div>
-          <div data-color="#c084fc" class="swatch" style="background:#c084fc"></div>
-          <div data-color="#fb923c" class="swatch" style="background:#fb923c"></div>
-          <div data-color="#f9fafb" class="swatch" style="background:#f9fafb"></div>
-          <div data-color="#111827" class="swatch" style="background:#111827"></div>
-        </div>
+        <select id="palette" class="px-1.5 py-1 bg-gray-800 border border-gray-600 rounded-md text-xs text-gray-100">
+          <option value="standard">Стандартная</option>
+          <option value="warm">Тёплая</option>
+          <option value="cool">Холодная</option>
+          <option value="pastel">Пастельная</option>
+          <option value="vivid">Яркая</option>
+          <option value="gray">Серые</option>
+        </select>
+        <div id="swatches" class="flex flex-wrap gap-1.5"></div>
       </div>
 
       <div class="flex items-center gap-2">
@@ -92,15 +91,10 @@
         <input type="color" id="bgColor" value="#ffffff" class="h-8 w-10 p-0.5 bg-gray-800 border border-gray-600 rounded-md cursor-pointer">
       </div>
 
-      <div class="flex items-center gap-2">
-        <span class="text-xs text-gray-400">Высота</span>
-        <input type="number" id="canvasH" value="700" min="64" max="4096" step="16" class="w-20 p-1 bg-gray-800 border border-gray-600 rounded-md text-xs text-gray-100">
-        <span class="text-xs text-gray-600">px</span>
-      </div>
-
       <div class="sep"></div>
 
       <button class="tool-btn" id="undoBtn" disabled>Отменить</button>
+      <button class="tool-btn" id="redoBtn" disabled>Вернуть</button>
       <button class="tool-btn" id="clearBtn">Очистить</button>
 
       <div class="flex-1"></div>
@@ -135,8 +129,9 @@
   var drawCanvas = $('drawCanvas');
 
   var LOADER = [
-    'https://cdn.jsdelivr.net/npm/perfect-freehand@1.2.2/dist/esm/index.js',
-    'https://unpkg.com/perfect-freehand@1.2.2/dist/esm/index.js'
+    'https://cdn.jsdelivr.net/npm/perfect-freehand@1.2.3/+esm',
+    'https://esm.sh/perfect-freehand@1.2.3',
+    'https://unpkg.com/perfect-freehand@1.2.3/dist/esm/index.mjs'
   ];
 
   function loadGetStroke() {
@@ -173,14 +168,15 @@
   var sizeLabel = $('sizeLabel');
   var tools = $('tools');
   var undoBtn = $('undoBtn');
+  var redoBtn = $('redoBtn');
   var clearBtn = $('clearBtn');
   var scaleSel = $('scale');
-  var canvasH = $('canvasH');
   var canvasBox = $('canvasBox');
 
   var tool = 'pen';
   var drawing = false;
   var undoStack = [];
+  var redoStack = [];
   var MAX_UNDO = 12;
   var dpr = Math.max(1, Math.min(2, window.devicePixelRatio || 1));
   var cssW = 0, cssH = 700;
@@ -211,15 +207,16 @@
     bgCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     undoStack = [];
+    redoStack = [];
     undoBtn.disabled = true;
+    redoBtn.disabled = true;
     if (old.width) ctx.drawImage(old, 0, 0);
     paintBg();
   }
 
-  function applyHeight() {
-    var h = Math.round(parseFloat(canvasH.value)) || 700;
-    h = Math.max(64, Math.min(4096, h));
-    canvasH.value = h;
+  function resizeCanvas() {
+    var top = canvasBox.getBoundingClientRect().top;
+    var h = Math.max(200, Math.floor(window.innerHeight - top));
     resize(Math.max(64, canvasBox.clientWidth), h);
   }
 
@@ -262,19 +259,40 @@
     });
   }
 
+  var PALETTES = {
+    standard: ['#f97316', '#f87171', '#4ade80', '#facc15', '#c084fc', '#fb923c', '#f9fafb', '#111827'],
+    warm: ['#ef4444', '#fb923c', '#f97316', '#f59e0b', '#facc15', '#eab308', '#fecaca', '#7f1d1d'],
+    cool: ['#38bdf8', '#60a5fa', '#818cf8', '#a78bfa', '#34d399', '#22d3ee', '#0ea5e9', '#1e3a8a'],
+    pastel: ['#f9a8d4', '#c4b5fd', '#a5b4fc', '#93c5fd', '#99f6e4', '#86efac', '#fde68a', '#fecaca'],
+    vivid: ['#ff0000', '#ff8000', '#ffff00', '#00ff00', '#00ffff', '#0080ff', '#8000ff', '#ff00ff'],
+    gray: ['#f9fafb', '#d1d5db', '#9ca3af', '#6b7280', '#4b5563', '#374151', '#1f2937', '#111827']
+  };
+
+  var swatchesEl = $('swatches');
+  var paletteSel = $('palette');
+
+  function buildSwatches() {
+    var colors = PALETTES[paletteSel.value] || PALETTES.standard;
+    swatchesEl.innerHTML = '';
+    colors.forEach(function (c) {
+      var s = document.createElement('div');
+      s.className = 'swatch';
+      s.setAttribute('data-color', c);
+      s.style.background = c;
+      s.addEventListener('click', function () {
+        color.value = c;
+        syncColor();
+      });
+      swatchesEl.appendChild(s);
+    });
+    syncColor();
+  }
+
   size.addEventListener('input', function () { sizeLabel.textContent = size.value; });
   color.addEventListener('input', syncColor);
   bgColor.addEventListener('input', paintBg);
   transparentBg.addEventListener('change', syncBg);
-  canvasH.addEventListener('change', applyHeight);
-  window.addEventListener('resize', debounce(applyHeight, 150));
-
-  document.querySelectorAll('.swatch').forEach(function (s) {
-    s.addEventListener('click', function () {
-      color.value = s.getAttribute('data-color');
-      syncColor();
-    });
-  });
+  window.addEventListener('resize', debounce(resizeCanvas, 150));
 
   tools.addEventListener('click', function (e) {
     var btn = e.target.closest('[data-tool]');
@@ -284,6 +302,8 @@
       b.classList.toggle('active', b === btn);
     });
   });
+
+  paletteSel.addEventListener('change', buildSwatches);
 
   function canvasPos(e) {
     var rect = drawCanvas.getBoundingClientRect();
@@ -407,15 +427,44 @@
     undoStack.push(ctx.getImageData(0, 0, drawCanvas.width, drawCanvas.height));
     if (undoStack.length > MAX_UNDO) undoStack.shift();
     undoBtn.disabled = false;
+    redoStack = [];
+    redoBtn.disabled = true;
   }
 
-  undoBtn.addEventListener('click', function () {
+  function snapshot() {
+    return ctx.getImageData(0, 0, drawCanvas.width, drawCanvas.height);
+  }
+
+  function undo() {
     var img = undoStack.pop();
-    if (img) {
-      ctx.clearRect(0, 0, drawCanvas.width, drawCanvas.height);
-      ctx.putImageData(img, 0, 0);
-    }
+    if (!img) { undoBtn.disabled = true; return; }
+    redoStack.push(snapshot());
+    if (redoStack.length > MAX_UNDO) redoStack.shift();
+    ctx.clearRect(0, 0, drawCanvas.width, drawCanvas.height);
+    ctx.putImageData(img, 0, 0);
     undoBtn.disabled = undoStack.length === 0;
+    redoBtn.disabled = false;
+  }
+
+  function redo() {
+    var img = redoStack.pop();
+    if (!img) { redoBtn.disabled = true; return; }
+    undoStack.push(snapshot());
+    if (undoStack.length > MAX_UNDO) undoStack.shift();
+    ctx.clearRect(0, 0, drawCanvas.width, drawCanvas.height);
+    ctx.putImageData(img, 0, 0);
+    redoBtn.disabled = redoStack.length === 0;
+    undoBtn.disabled = false;
+  }
+
+  undoBtn.addEventListener('click', undo);
+  redoBtn.addEventListener('click', redo);
+
+  window.addEventListener('keydown', function (e) {
+    if (!(e.ctrlKey || e.metaKey)) return;
+    var k = e.key.toLowerCase();
+    if (k === 'z' && !e.shiftKey) { e.preventDefault(); undo(); }
+    else if ((k === 'z' && e.shiftKey) || k === 'y') { e.preventDefault(); redo(); }
   });
 
   clearBtn.addEventListener('click', function () {
@@ -464,9 +513,9 @@
     statusEl.textContent = 'PNG сохранён: ' + (w * sc) + ' × ' + (h * sc) + ' px (по границам рисунка)' + (transparentBg.checked ? ', фон прозрачный' : '');
   });
 
-  applyHeight();
+  resizeCanvas();
   syncBg();
-  syncColor();
+  buildSwatches();
   }
 
 })();
