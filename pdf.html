@@ -1,0 +1,863 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PDF просмотр</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  .tool-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.375rem 0.625rem;
+    font-size: 0.75rem;
+    border-radius: 0.5rem;
+    border: 1px solid rgb(75 85 99);
+    color: rgb(229 231 235);
+    background: rgb(31 41 55);
+    cursor: pointer;
+    transition: background .15s, border-color .15s;
+  }
+  .tool-btn:hover { background: rgb(55 65 81); }
+  .tool-btn.active {
+    background: rgb(37 99 235);
+    border-color: rgb(59 130 246);
+    color: #fff;
+  }
+  .tool-btn:disabled { opacity: .4; cursor: not-allowed; }
+
+  #viewer { transition: background-color .15s; }
+  #stage {
+    display: grid;
+    justify-items: center;
+    align-content: start;
+    position: relative;
+    perspective: 2600px;
+  }
+  .view-layer {
+    grid-area: 1 / 1;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    perspective: 2600px;
+    transform-style: preserve-3d;
+  }
+  .page-slot { position: relative; }
+  .page-slot.empty-slot { background: var(--view-bg, #3f3f46); }
+  .page-slot canvas {
+    display: block;
+    background: #fff;
+    border-radius: 2px;
+  }
+  .view-layer:not(.spread) .page-slot canvas {
+    box-shadow: 0 12px 34px rgba(0, 0, 0, .5);
+  }
+  #spine {
+    position: absolute;
+    top: 24px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 52px;
+    pointer-events: none;
+    z-index: 5;
+    background: linear-gradient(to right,
+      rgba(0, 0, 0, 0) 0%,
+      rgba(0, 0, 0, .22) 50%,
+      rgba(0, 0, 0, 0) 100%);
+  }
+  .view-layer.animating {
+    animation-timing-function: cubic-bezier(.5, .05, .45, .95);
+    animation-fill-mode: both;
+    will-change: transform, opacity;
+  }
+  .page-slot.flipping {
+    transform-style: preserve-3d;
+    animation-timing-function: cubic-bezier(.5, .05, .45, .95);
+    animation-fill-mode: both;
+  }
+  .flip-back {
+    position: absolute;
+    inset: 0;
+    backface-visibility: hidden;
+    transform: rotateY(180deg);
+    background: #f4f4f5;
+    border-radius: 2px;
+    overflow: hidden;
+  }
+  .flip-back canvas { display: block; }
+
+  @keyframes fadeIn  { from { opacity: 0 } to { opacity: 1 } }
+  @keyframes fadeOut { from { opacity: 1 } to { opacity: 0 } }
+  @keyframes slideIn  { from { opacity: .35; transform: translateX(9%) } to { opacity: 1; transform: none } }
+  @keyframes slideOut { from { opacity: 1; transform: none } to { opacity: .15; transform: translateX(-9%) } }
+  @keyframes zoomIn  { from { opacity: 0; transform: scale(.94) } to { opacity: 1; transform: none } }
+  @keyframes zoomOut { from { opacity: 1; transform: none } to { opacity: 0; transform: scale(1.05) } }
+  @keyframes flipForward  { from { transform: translateZ(1px) rotateY(0deg) } to { transform: translateZ(1px) rotateY(-180deg) } }
+  @keyframes flipBackward { from { transform: translateZ(1px) rotateY(0deg) } to { transform: translateZ(1px) rotateY(180deg) } }
+
+  .toc-title {
+    display: block;
+    border-radius: .375rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .toc-title.active { background: rgb(30 58 138); color: #fff; }
+  .toc-title[contenteditable="true"] {
+    outline: 1px solid rgb(59 130 246);
+    background: rgb(31 41 55);
+    cursor: text;
+    overflow: visible;
+  }
+  #viewer.dragover { outline: 2px dashed rgb(59 130 246); outline-offset: -8px; }
+</style>
+</head>
+<body class="bg-gray-950 text-gray-100 font-sans antialiased flex flex-col h-screen overflow-hidden">
+
+  <header class="px-4 py-3 flex items-center justify-between border-b border-gray-800">
+    <h1 class="text-lg font-semibold">PDF просмотр</h1>
+    <div class="flex gap-3 text-xs">
+      <a href="./index.html" class="text-gray-400 hover:text-gray-200 underline">LaTeX → PNG</a>
+      <a href="./plot.html" class="text-gray-400 hover:text-gray-200 underline">График функции</a>
+      <a href="./draw.html" class="text-gray-400 hover:text-gray-200 underline">Рисовалка</a>
+    </div>
+  </header>
+
+  <div class="bg-gray-900 border-b border-gray-800 px-4 py-3">
+    <div class="flex flex-wrap items-center gap-x-5 gap-y-3">
+
+      <label class="tool-btn active cursor-pointer">
+        Открыть PDF
+        <input type="file" id="fileInput" accept="application/pdf,.pdf" class="hidden">
+      </label>
+
+      <label class="tool-btn cursor-pointer">
+        Открыть проект
+        <input type="file" id="projInput" accept=".json,application/json" class="hidden">
+      </label>
+
+      <button class="tool-btn" id="saveProj" disabled>Сохранить проект</button>
+
+      <div class="flex items-center gap-1.5">
+        <button class="tool-btn" id="prevBtn" disabled>‹</button>
+        <input type="number" id="pageNum" value="1" min="1"
+          class="w-16 px-2 py-1 bg-gray-800 border border-gray-600 rounded-md text-xs text-gray-100 text-center">
+        <span class="text-xs text-gray-400">/ <span id="pageCount">0</span></span>
+        <button class="tool-btn" id="nextBtn" disabled>›</button>
+      </div>
+
+      <div class="flex items-center gap-2">
+        <span class="text-xs text-gray-400">Вид</span>
+        <select id="view" class="px-1.5 py-1 bg-gray-800 border border-gray-600 rounded-md text-xs text-gray-100">
+          <option value="single">Одна страница</option>
+          <option value="spread">Разворот</option>
+          <option value="book" selected>Книга</option>
+        </select>
+      </div>
+
+      <div class="flex items-center gap-2">
+        <span class="text-xs text-gray-400">Масштаб</span>
+        <select id="zoom" class="px-1.5 py-1 bg-gray-800 border border-gray-600 rounded-md text-xs text-gray-100">
+          <option value="fit" selected>По ширине</option>
+          <option value="fit-height">По высоте</option>
+          <option value="0.5">50%</option>
+          <option value="0.75">75%</option>
+          <option value="1">100%</option>
+          <option value="1.25">125%</option>
+          <option value="1.5">150%</option>
+          <option value="2">200%</option>
+          <option value="3">300%</option>
+        </select>
+      </div>
+
+      <div class="flex items-center gap-2">
+        <span class="text-xs text-gray-400">Анимация</span>
+        <select id="anim" class="px-1.5 py-1 bg-gray-800 border border-gray-600 rounded-md text-xs text-gray-100">
+          <option value="flip" selected>Перелистывание</option>
+          <option value="slide">Сдвиг</option>
+          <option value="fade">Плавно</option>
+          <option value="zoom">Приближение</option>
+          <option value="none">Без анимации</option>
+        </select>
+      </div>
+
+      <div class="flex items-center gap-2">
+        <span class="text-xs text-gray-400">Фон</span>
+        <input type="color" id="bgColor" value="#3f3f46" class="h-8 w-10 p-0.5 bg-gray-800 border border-gray-600 rounded-md cursor-pointer">
+      </div>
+
+      <div style="width:1px;align-self:stretch;background:rgb(75 85 99)"></div>
+
+      <button class="tool-btn" id="tocToggle" disabled>Оглавление</button>
+    </div>
+    <div id="status" class="text-xs text-gray-500 mt-2 min-h-[1rem]">Выберите PDF-файл или перетащите его в окно</div>
+  </div>
+
+  <div class="flex flex-grow min-h-0 overflow-hidden">
+    <aside id="toc" class="hidden w-72 shrink-0 border-r border-gray-800 bg-gray-900 flex-col overflow-hidden">
+      <div class="flex items-center justify-between px-3 py-2 border-b border-gray-800">
+        <span class="text-xs font-semibold text-gray-400">Оглавление</span>
+        <button id="tocReset" class="text-[11px] text-gray-400 hover:text-gray-200 underline">Сбросить</button>
+      </div>
+      <div id="tocList" class="flex-1 overflow-y-auto p-2"></div>
+    </aside>
+
+    <main id="viewer" class="flex-grow min-h-0 overflow-auto relative">
+      <div id="stage" class="p-6 min-h-full">
+        <div id="spine" class="hidden"></div>
+      </div>
+      <div id="empty" class="absolute inset-0 flex items-center justify-center pointer-events-none">
+        <div class="text-center text-gray-500">
+          <div class="text-5xl mb-3">&#128196;</div>
+          <div class="text-sm">PDF не загружен</div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+<script type="module">
+(function () {
+  function $ (id) { return document.getElementById(id); }
+
+  var statusEl = $('status');
+  var fileInput = $('fileInput');
+  var prevBtn = $('prevBtn');
+  var nextBtn = $('nextBtn');
+  var pageNum = $('pageNum');
+  var pageCount = $('pageCount');
+  var viewSel = $('view');
+  var zoomSel = $('zoom');
+  var animSel = $('anim');
+  var bgColor = $('bgColor');
+  var projInput = $('projInput');
+  var saveProj = $('saveProj');
+  var tocToggle = $('tocToggle');
+  var tocPanel = $('toc');
+  var tocList = $('tocList');
+  var tocReset = $('tocReset');
+  var viewer = $('viewer');
+  var stage = $('stage');
+  var spine = $('spine');
+  var empty = $('empty');
+
+  var PDF_SOURCES = [
+    { lib: 'https://cdn.jsdelivr.net/npm/pdfjs-dist@4.6.82/build/pdf.min.mjs',
+      worker: 'https://cdn.jsdelivr.net/npm/pdfjs-dist@4.6.82/build/pdf.worker.min.mjs' },
+    { lib: 'https://unpkg.com/pdfjs-dist@4.6.82/build/pdf.min.mjs',
+      worker: 'https://unpkg.com/pdfjs-dist@4.6.82/build/pdf.worker.min.mjs' }
+  ];
+
+  var pdfjsLib = null;
+  var pdfDoc = null;
+  var totalPages = 0;
+  var currentPage = 1;
+  var currentLayer = null;
+  var busy = false;
+  var queued = null;
+  var rawOutline = null;
+  var tocData = null;
+  var pdfBytes = null;
+  var pdfName = '';
+  var dpr = Math.max(1, Math.min(2, window.devicePixelRatio || 1));
+
+  function setStatus(msg) { statusEl.textContent = msg; }
+
+  function debounce(fn, ms) {
+    var t = null;
+    return function () {
+      clearTimeout(t);
+      t = setTimeout(fn, ms);
+    };
+  }
+
+  async function loadPdfJs() {
+    for (var i = 0; i < PDF_SOURCES.length; i++) {
+      var s = PDF_SOURCES[i];
+      try {
+        var mod = await import(s.lib);
+        if (mod && typeof mod.getDocument === 'function') {
+          mod.GlobalWorkerOptions.workerSrc = s.worker;
+          return mod;
+        }
+      } catch (e) { /* пробуем следующий CDN */ }
+    }
+    throw new Error('Не удалось загрузить PDF.js (нет доступа к CDN)');
+  }
+
+  function hexToRgb(hex) {
+    var v = hex.replace('#', '');
+    if (v.length === 3) v = v.split('').map(function (c) { return c + c; }).join('');
+    var n = parseInt(v, 16);
+    return 'rgb(' + ((n >> 16) & 255) + ',' + ((n >> 8) & 255) + ',' + (n & 255) + ')';
+  }
+
+  function syncBg() {
+    var rgb = hexToRgb(bgColor.value);
+    viewer.style.backgroundColor = rgb;
+    viewer.style.setProperty('--view-bg', rgb);
+  }
+
+  function bytesToBase64(bytes) {
+    var chunk = 0x8000;
+    var s = '';
+    for (var i = 0; i < bytes.length; i += chunk) {
+      s += String.fromCharCode.apply(null, bytes.subarray(i, i + chunk));
+    }
+    return btoa(s);
+  }
+
+  function base64ToBytes(b64) {
+    var bin = atob(b64);
+    var arr = new Uint8Array(bin.length);
+    for (var i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
+    return arr;
+  }
+
+  function serializeToc(items) {
+    if (!items) return [];
+    return items.map(function (n) {
+      return { title: n.title, page: n.page, bold: !!n.bold, items: serializeToc(n.items) };
+    });
+  }
+
+  function normalizeToc(items) {
+    if (!items) return [];
+    return items.map(function (n) {
+      return {
+        title: n.title || '(без названия)',
+        dest: null,
+        bold: !!n.bold,
+        page: n.page || null,
+        items: normalizeToc(n.items)
+      };
+    });
+  }
+
+  function viewMode() { return viewSel.value; }
+
+  function spreadStart(page) {
+    if (viewMode() === 'single') return page;
+    if (viewMode() === 'book') {
+      if (page <= 1) return 1;
+      return page % 2 === 0 ? page : page - 1;
+    }
+    return page % 2 === 1 ? page : page - 1;
+  }
+
+  function slotsFor(page) {
+    var mode = viewMode();
+    if (mode === 'single') return [spreadStart(page)];
+    var s = spreadStart(page);
+    if (mode === 'book' && s === 1) return [null, 1];
+    return [s, (s + 1 <= totalPages ? s + 1 : null)];
+  }
+
+  function pagesFor(page) {
+    return slotsFor(page).filter(function (n) { return n; });
+  }
+
+  function nextTarget(page) {
+    var ps = pagesFor(page);
+    return ps[ps.length - 1] + 1;
+  }
+
+  function prevTarget(page) {
+    return pagesFor(page)[0] - 1;
+  }
+
+  function computeScale(sizes, cols) {
+    var zoom = zoomSel.value;
+    if (zoom !== 'fit' && zoom !== 'fit-height') {
+      return Math.max(0.1, Math.min(parseFloat(zoom), 8));
+    }
+    var availW = Math.max(120, viewer.clientWidth - 48);
+    var availH = Math.max(120, viewer.clientHeight - 48);
+    var perW = cols === 1 ? availW : availW / cols;
+    var s = Infinity;
+    for (var i = 0; i < sizes.length; i++) {
+      var cand = zoom === 'fit' ? perW / sizes[i].width : availH / sizes[i].height;
+      if (cand < s) s = cand;
+    }
+    return Math.max(0.1, Math.min(s, 8));
+  }
+
+  async function buildView(target) {
+    var mode = viewMode();
+    var slots = slotsFor(target);
+    var infos = [];
+    var ref = null;
+    for (var i = 0; i < slots.length; i++) {
+      if (slots[i]) {
+        var pg = await pdfDoc.getPage(slots[i]);
+        var vp = pg.getViewport({ scale: 1 });
+        infos.push({ page: pg, vp: vp, num: slots[i] });
+        if (!ref) ref = vp;
+      } else {
+        infos.push(null);
+      }
+    }
+    if (!ref) ref = { width: 595, height: 842 };
+    var sizes = infos.map(function (inf) { return inf ? inf.vp : ref; });
+    var cols = mode === 'single' ? 1 : 2;
+    var scale = computeScale(sizes, cols);
+
+    if (cols === 2) {
+      var maxH = 0;
+      for (var k = 0; k < sizes.length; k++) maxH = Math.max(maxH, sizes[k].height);
+      spine.classList.remove('hidden');
+      spine.style.height = Math.floor(maxH * scale) + 'px';
+    } else {
+      spine.classList.add('hidden');
+    }
+
+    var layer = document.createElement('div');
+    layer.className = 'view-layer' + (cols === 2 ? ' spread' : '');
+    layer.dataset.page = target;
+
+    for (var j = 0; j < infos.length; j++) {
+      var info = infos[j];
+      var size = info ? info.vp : ref;
+      var slot = document.createElement('div');
+      slot.className = 'page-slot';
+      if (info) {
+        slot.dataset.page = info.num;
+        var vp2 = info.page.getViewport({ scale: scale * dpr });
+        var canvas = document.createElement('canvas');
+        canvas.width = Math.floor(vp2.width);
+        canvas.height = Math.floor(vp2.height);
+        canvas.style.width = Math.floor(size.width * scale) + 'px';
+        canvas.style.height = Math.floor(size.height * scale) + 'px';
+        slot.appendChild(canvas);
+        await info.page.render({ canvasContext: canvas.getContext('2d'), viewport: vp2 }).promise;
+      } else {
+        slot.classList.add('empty-slot');
+        slot.style.width = Math.floor(size.width * scale) + 'px';
+        slot.style.height = Math.floor(size.height * scale) + 'px';
+      }
+      layer.appendChild(slot);
+    }
+    return layer;
+  }
+
+  function updateNav() {
+    pageNum.value = currentPage;
+    var ps = pagesFor(currentPage);
+    prevBtn.disabled = ps[0] <= 1;
+    nextBtn.disabled = ps[ps.length - 1] >= totalPages;
+    var titles = document.querySelectorAll('.toc-title');
+    for (var i = 0; i < titles.length; i++) {
+      var p = parseInt(titles[i].dataset.page, 10);
+      titles[i].classList.toggle('active', ps.indexOf(p) >= 0);
+    }
+  }
+
+  function copyCanvas(slot) {
+    if (!slot) return null;
+    var src = slot.querySelector('canvas');
+    if (!src) return null;
+    var c = document.createElement('canvas');
+    c.width = src.width;
+    c.height = src.height;
+    c.style.width = src.style.width;
+    c.style.height = src.style.height;
+    c.getContext('2d').drawImage(src, 0, 0);
+    return c;
+  }
+
+  function addBackFace(slot, backCanvas) {
+    slot.classList.add('flipping');
+    slot.style.zIndex = '3';
+    var front = slot.querySelector('canvas');
+    if (front) front.style.backfaceVisibility = 'hidden';
+    var back = document.createElement('div');
+    back.className = 'flip-back';
+    if (backCanvas) back.appendChild(backCanvas);
+    slot.appendChild(back);
+  }
+
+  function transition(oldLayer, newLayer, dir, type) {
+    var dur = type === 'flip' ? 650 : 340;
+    if (!oldLayer) { stage.appendChild(newLayer); return; }
+
+    if (type === 'flip') {
+      stage.appendChild(newLayer);
+      newLayer.style.zIndex = '1';
+      oldLayer.style.zIndex = '2';
+
+      var oldSlots = oldLayer.querySelectorAll('.page-slot');
+      var newSlots = newLayer.querySelectorAll('.page-slot');
+      var slot, origin, name, backCanvas = null;
+
+      if (oldSlots.length < 2) {
+        slot = oldSlots[0] || oldLayer;
+        origin = dir > 0 ? 'left center' : 'right center';
+        name = dir > 0 ? 'flipForward' : 'flipBackward';
+      } else if (dir > 0) {
+        slot = oldSlots[oldSlots.length - 1];
+        origin = 'left center';
+        name = 'flipForward';
+        backCanvas = copyCanvas(newSlots[0]);
+      } else {
+        slot = oldSlots[0];
+        origin = 'right center';
+        name = 'flipBackward';
+        backCanvas = copyCanvas(newSlots[newSlots.length - 1]);
+      }
+
+      addBackFace(slot, backCanvas);
+      slot.style.transformOrigin = origin;
+      slot.style.animationName = name;
+      slot.style.animationDuration = dur + 'ms';
+      setTimeout(function () { oldLayer.remove(); }, dur + 80);
+      return;
+    }
+
+    stage.appendChild(newLayer);
+    if (type === 'none') { oldLayer.remove(); return; }
+    oldLayer.classList.add('animating');
+    oldLayer.style.zIndex = '1';
+    newLayer.style.zIndex = '2';
+    oldLayer.style.animationName = type + 'Out';
+    oldLayer.style.animationDuration = dur + 'ms';
+    newLayer.classList.add('animating');
+    newLayer.style.animationName = type + 'In';
+    newLayer.style.animationDuration = dur + 'ms';
+    setTimeout(function () { oldLayer.remove(); }, dur + 80);
+  }
+
+  async function showView(target, force) {
+    if (!pdfDoc) return;
+    target = Math.max(1, Math.min(totalPages, target));
+    if (!force && target === currentPage && currentLayer) return;
+    if (busy) { queued = target; return; }
+    busy = true;
+    try {
+      var layer;
+      try {
+        layer = await buildView(target);
+      } catch (e) {
+        setStatus('Ошибка рендера: ' + (e && e.message ? e.message : e));
+        return;
+      }
+      var dir = target >= currentPage ? 1 : -1;
+      transition(currentLayer, layer, dir, animSel.value);
+      currentLayer = layer;
+      currentPage = target;
+      updateNav();
+    } finally {
+      busy = false;
+      if (queued != null) { var q = queued; queued = null; showView(q, true); }
+    }
+  }
+
+  async function destToPage(dest) {
+    try {
+      if (typeof dest === 'string') dest = await pdfDoc.getDestination(dest);
+      if (!Array.isArray(dest) || !dest[0]) return null;
+      var idx = await pdfDoc.getPageIndex(dest[0]);
+      return idx + 1;
+    } catch (e) { return null; }
+  }
+
+  async function prepareToc(items) {
+    var out = [];
+    for (var i = 0; i < items.length; i++) {
+      var it = items[i];
+      var node = {
+        title: it.title || '(без названия)',
+        dest: it.dest,
+        bold: !!it.bold,
+        page: await destToPage(it.dest),
+        items: []
+      };
+      if (it.items && it.items.length) node.items = await prepareToc(it.items);
+      out.push(node);
+    }
+    return out;
+  }
+
+  function startEdit(el, node) {
+    el.contentEditable = 'true';
+    el.focus();
+    var range = document.createRange();
+    range.selectNodeContents(el);
+    var sel = window.getSelection();
+    sel.removeAllRanges();
+    sel.addRange(range);
+
+    function finish(save) {
+      el.contentEditable = 'false';
+      if (save) {
+        var t = el.textContent.replace(/\s+/g, ' ').trim() || '(без названия)';
+        node.title = t;
+        el.textContent = t;
+      } else {
+        el.textContent = node.title;
+      }
+      el.removeEventListener('blur', onBlur);
+      el.removeEventListener('keydown', onKey);
+    }
+    function onBlur() { finish(true); }
+    function onKey(e) {
+      if (e.key === 'Enter') { e.preventDefault(); el.blur(); }
+      else if (e.key === 'Escape') { e.preventDefault(); finish(false); }
+    }
+    el.addEventListener('blur', onBlur);
+    el.addEventListener('keydown', onKey);
+  }
+
+  function renderTocList(items, depth, parent) {
+    var ul = document.createElement('ul');
+    ul.className = 'space-y-0.5';
+    items.forEach(function (node) {
+      var li = document.createElement('li');
+      var row = document.createElement('div');
+      row.className = 'group flex items-center gap-0.5 rounded-md hover:bg-gray-800';
+
+      var title = document.createElement('span');
+      title.className = 'toc-title flex-1 text-xs px-2 py-1 text-gray-300 cursor-pointer';
+      title.style.paddingLeft = (8 + depth * 14) + 'px';
+      title.textContent = node.title;
+      if (node.bold) title.classList.add('font-semibold');
+      if (node.page) {
+        title.dataset.page = node.page;
+        title.title = 'Стр. ' + node.page;
+        title.addEventListener('click', function () {
+          if (title.isContentEditable) return;
+          showView(node.page);
+        });
+      } else {
+        title.classList.add('opacity-50');
+      }
+
+      var edit = document.createElement('button');
+      edit.className = 'px-1 text-xs text-gray-500 hover:text-gray-200 opacity-0 group-hover:opacity-100';
+      edit.innerHTML = '&#9998;';
+      edit.title = 'Переименовать';
+      edit.addEventListener('click', function (e) {
+        e.stopPropagation();
+        startEdit(title, node);
+      });
+
+      var del = document.createElement('button');
+      del.className = 'px-1 text-xs text-gray-500 hover:text-red-400 opacity-0 group-hover:opacity-100';
+      del.innerHTML = '&#10005;';
+      del.title = 'Удалить';
+      del.addEventListener('click', function (e) {
+        e.stopPropagation();
+        var i = parent.indexOf(node);
+        if (i >= 0) parent.splice(i, 1);
+        renderToc();
+      });
+
+      row.appendChild(title);
+      row.appendChild(edit);
+      row.appendChild(del);
+      li.appendChild(row);
+      if (node.items && node.items.length) {
+        li.appendChild(renderTocList(node.items, depth + 1, node.items));
+      }
+      ul.appendChild(li);
+    });
+    return ul;
+  }
+
+  function renderToc() {
+    tocList.innerHTML = '';
+    if (!tocData || !tocData.length) {
+      var msg = rawOutline && rawOutline.length
+        ? 'Все пункты удалены. Нажмите «Сбросить».'
+        : 'Оглавление отсутствует';
+      tocList.innerHTML = '<div class="text-xs text-gray-500 p-2">' + msg + '</div>';
+      if (pdfDoc) updateNav();
+      return;
+    }
+    tocList.appendChild(renderTocList(tocData, 0, tocData));
+    if (pdfDoc) updateNav();
+  }
+
+  async function loadPdf(data, name, opts) {
+    if (!pdfjsLib) { setStatus('PDF.js ещё загружается…'); return; }
+    opts = opts || {};
+    setStatus('Загрузка PDF…');
+    empty.classList.add('hidden');
+    try {
+      if (pdfDoc) { try { await pdfDoc.destroy(); } catch (e) {} pdfDoc = null; }
+      if (currentLayer) { currentLayer.remove(); currentLayer = null; }
+      pdfBytes = data;
+      pdfName = name || 'document.pdf';
+      pdfDoc = await pdfjsLib.getDocument({ data: data.slice() }).promise;
+      totalPages = pdfDoc.numPages;
+      currentPage = 1;
+      pageCount.textContent = totalPages;
+      pageNum.max = totalPages;
+      rawOutline = null;
+      try { rawOutline = await pdfDoc.getOutline(); } catch (e) { rawOutline = null; }
+      if (opts.toc) {
+        tocData = normalizeToc(opts.toc);
+      } else if (rawOutline && rawOutline.length) {
+        tocData = await prepareToc(rawOutline);
+      } else {
+        tocData = null;
+      }
+      var hasToc = (tocData && tocData.length) || (rawOutline && rawOutline.length);
+      tocToggle.disabled = !hasToc;
+      if (!hasToc) {
+        tocToggle.classList.remove('active');
+        tocPanel.classList.add('hidden');
+      }
+      renderToc();
+      updateNav();
+      await showView(opts.page || 1, true);
+      saveProj.disabled = false;
+      setStatus('Загружено: ' + pdfName + ' — ' + totalPages + ' стр.');
+    } catch (e) {
+      pdfDoc = null;
+      empty.classList.remove('hidden');
+      setStatus('Ошибка: ' + (e && e.message ? e.message : e));
+    }
+  }
+
+  function saveProject() {
+    if (!pdfDoc || !pdfBytes) { setStatus('Сначала откройте PDF'); return; }
+    try {
+      var proj = {
+        app: 'latex-2-png/pdf-viewer',
+        version: 1,
+        name: pdfName,
+        pdf: bytesToBase64(pdfBytes),
+        toc: serializeToc(tocData),
+        bg: bgColor.value,
+        view: viewSel.value,
+        zoom: zoomSel.value,
+        anim: animSel.value,
+        page: currentPage
+      };
+      var blob = new Blob([JSON.stringify(proj)], { type: 'application/json' });
+      var url = URL.createObjectURL(blob);
+      var a = document.createElement('a');
+      a.href = url;
+      a.download = pdfName.replace(/\.pdf$/i, '') + '.pdfproj.json';
+      a.click();
+      setTimeout(function () { URL.revokeObjectURL(url); }, 2000);
+      setStatus('Проект сохранён');
+    } catch (e) {
+      setStatus('Не удалось сохранить: ' + (e && e.message ? e.message : e));
+    }
+  }
+
+  async function openProject(file) {
+    try {
+      var json = JSON.parse(await file.text());
+      if (!json || !json.pdf) throw new Error('неверный формат проекта');
+      if (json.bg) bgColor.value = json.bg;
+      if (json.view) viewSel.value = json.view;
+      if (json.zoom) zoomSel.value = json.zoom;
+      if (json.anim) animSel.value = json.anim;
+      syncBg();
+      await loadPdf(base64ToBytes(json.pdf), json.name || 'project.pdf', {
+        toc: json.toc || [],
+        page: json.page || 1
+      });
+      setStatus('Проект открыт: ' + (json.name || 'project.pdf'));
+    } catch (e) {
+      setStatus('Не удалось открыть проект: ' + (e && e.message ? e.message : e));
+    }
+  }
+
+  function readFile(file) {
+    if (!file) return;
+    if (file.type !== 'application/pdf' && !/\.pdf$/i.test(file.name)) {
+      setStatus('Нужен PDF-файл');
+      return;
+    }
+    file.arrayBuffer().then(function (buf) {
+      loadPdf(new Uint8Array(buf), file.name);
+    }, function (e) {
+      setStatus('Не удалось прочитать файл: ' + (e && e.message ? e.message : e));
+    });
+  }
+
+  fileInput.addEventListener('change', function () {
+    if (fileInput.files && fileInput.files[0]) readFile(fileInput.files[0]);
+    fileInput.value = '';
+  });
+
+  prevBtn.addEventListener('click', function () { showView(prevTarget(currentPage)); });
+  nextBtn.addEventListener('click', function () { showView(nextTarget(currentPage)); });
+
+  pageNum.addEventListener('change', function () {
+    showView(parseInt(pageNum.value, 10) || 1);
+  });
+  pageNum.addEventListener('keydown', function (e) {
+    if (e.key === 'Enter') { e.preventDefault(); showView(parseInt(pageNum.value, 10) || 1); pageNum.blur(); }
+  });
+
+  viewSel.addEventListener('change', function () { showView(currentPage, true); });
+  zoomSel.addEventListener('change', function () { showView(currentPage, true); });
+  bgColor.addEventListener('input', syncBg);
+
+  saveProj.addEventListener('click', saveProject);
+  projInput.addEventListener('change', function () {
+    if (projInput.files && projInput.files[0]) openProject(projInput.files[0]);
+    projInput.value = '';
+  });
+
+  tocToggle.addEventListener('click', function () {
+    var hidden = tocPanel.classList.toggle('hidden');
+    tocPanel.classList.toggle('flex', !hidden);
+    tocToggle.classList.toggle('active', !hidden);
+  });
+
+  tocReset.addEventListener('click', async function () {
+    if (!rawOutline || !rawOutline.length) return;
+    tocData = await prepareToc(rawOutline);
+    renderToc();
+  });
+
+  ['dragenter', 'dragover'].forEach(function (ev) {
+    viewer.addEventListener(ev, function (e) {
+      e.preventDefault();
+      viewer.classList.add('dragover');
+    });
+  });
+  ['dragleave', 'drop'].forEach(function (ev) {
+    viewer.addEventListener(ev, function (e) {
+      e.preventDefault();
+      viewer.classList.remove('dragover');
+    });
+  });
+  viewer.addEventListener('drop', function (e) {
+    if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0]) {
+      readFile(e.dataTransfer.files[0]);
+    }
+  });
+
+  window.addEventListener('keydown', function (e) {
+    if (e.target === pageNum || !pdfDoc || e.target.isContentEditable) return;
+    if (e.key === 'ArrowRight' || e.key === 'PageDown') { e.preventDefault(); showView(nextTarget(currentPage)); }
+    else if (e.key === 'ArrowLeft' || e.key === 'PageUp') { e.preventDefault(); showView(prevTarget(currentPage)); }
+    else if (e.key === 'Home') { e.preventDefault(); showView(1); }
+    else if (e.key === 'End') { e.preventDefault(); showView(totalPages); }
+  });
+
+  window.addEventListener('resize', debounce(function () {
+    if (!pdfDoc) return;
+    var z = zoomSel.value;
+    if (z === 'fit' || z === 'fit-height') showView(currentPage, true);
+  }, 200));
+
+  syncBg();
+
+  loadPdfJs().then(function (lib) {
+    pdfjsLib = lib;
+    setStatus('PDF.js загружен. Выберите PDF-файл или перетащите его в окно');
+  }, function (err) {
+    setStatus(err && err.message ? err.message : 'Ошибка загрузки PDF.js');
+    fileInput.disabled = true;
+  });
+})();
+</script>
+</body>
+</html>

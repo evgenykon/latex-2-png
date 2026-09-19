@@ -1,6 +1,6 @@
 FROM nginx:1.27-alpine
 
-COPY index.html plot.html draw.html /usr/share/nginx/html/
+COPY index.html plot.html draw.html pdf.html /usr/share/nginx/html/
 COPY README.md /usr/share/nginx/html/
 
 EXPOSE 80
